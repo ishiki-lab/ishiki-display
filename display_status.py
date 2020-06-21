@@ -1,17 +1,8 @@
 #!/usr/bin/env python3
 
-# this will catch exceptions and send them to sentry
 import os
 import json
-#import sentry_sdk
 import socket
-#from sentry_sdk import capture_message, capture_exception
-
-#SENTRY_URL = os.environ.get("SENTRY_URL")
-
-#if SENTRY_URL is not None:
-#    print("Exceptions in Sentry")
-#    sentry_sdk.init(SENTRY_URL)
 
 import time
 
@@ -25,22 +16,16 @@ from socket import gethostname
 from datetime import datetime as dt
 from signal import alarm, signal, SIGALRM, SIGKILL
 import netifaces
-# from apscheduler.schedulers.background import BackgroundScheduler
 import schedule
 # import evdev
 # from evdev import ecodes
-#from scipy.interpolate import interp1d
 import pygame
 from pygame.locals import *
 
-#import find_hue
 
-#from phue import Bridge, PhueRegistrationException, PhueRequestTimeout
-
-HUE_BRIDGE = None
 DELAY = 60 # delay for updating the screen information in seconds
-FONT_SIZE = 45
 IMAGES_PATH = '/media/usb/Images'
+CREDITS_PATH = '/media/usb'
 
 # DIM = None # screen framebuffer dimensions
 # SCREEN_WIDTH = None
@@ -54,6 +39,7 @@ display_info = pygame.display.Info()
 SCREEN_WIDTH = display_info.current_w
 SCREEN_HEIGHT = display_info.current_h
 DIM = (SCREEN_WIDTH, SCREEN_HEIGHT)
+FONT_SIZE = int(SCREEN_HEIGHT/10)
 
 print(DIM)
 
@@ -109,9 +95,6 @@ def draw_time():
     try:
         draw_time_wrapped()
     except Exception as e:
-        # Alternatively the argument can be omitted
-        if SENTRY_URL is not None:
-            capture_exception(e)
         raise(e)
 
 
@@ -126,6 +109,19 @@ def draw_time_wrapped():
    show_text(current_dt, font_regular, WHITE, [SCREEN_WIDTH/2, SCREEN_HEIGHT - FONT_SIZE/2])
 
 
+def draw_credits_wrapped():
+    global FONT_SIZE
+    global lcd
+    font_regular = pygame.font.Font(None, FONT_SIZE)
+    fn = join(CREDITS_PATH,'credits.txt')
+    if exists(fn):
+        cf = open(fn, 'r')
+        lines = cf.readlines()
+        # only display the first two lines
+        for i in range(0,2):
+            line = lines[i]
+            show_text(line.strip('\n').strip('\t'), font_regular, WHITE, [SCREEN_WIDTH/2, SCREEN_HEIGHT - 3*(FONT_SIZE) + FONT_SIZE*(i)])
+
 
 def show_text(text, font, colour, coordinates):
     text_surface = font.render('%s' % text, True,BLACK)
@@ -136,61 +132,12 @@ def show_text(text, font, colour, coordinates):
     lcd.blit(text_surface, rect)
     pygame.display.update()
 
-'''
-def draw_hue():
-    try:
-        draw_hue_wrapped()
-    except Exception as e:
-        # Alternatively the argument can be omitted
-        if SENTRY_URL is not None:
-            capture_exception(e)
-        raise(e)
-
-def get_hue_address():
-    return find_hue.hue_ip()
-
-
-def draw_hue_wrapped():
-
-    global HUE_BRIDGE
-    text_x_offset = int(SCREEN_HEIGHT / 4)
-    row = 5
-    font_regular = pygame.font.Font(None, FONT_SIZE)
-    hue_address = get_hue_address()
-    try:
-        if HUE_BRIDGE is None:
-            HUE_BRIDGE = Bridge(hue_address, config_file_path="/media/usb/python_hue")
-        lights = HUE_BRIDGE.lights
-        for l in lights:
-            show_text("%s OK" % l.name, font_regular, WHITE, [SCREEN_WIDTH / 2, text_x_offset + FONT_SIZE * (row)])
-            row += 1
-    except PhueRegistrationException as e:
-        print("PhueRegistrationException")
-        HUE_BRIDGE = None
-        msg = "Press Hue button to connect on %s" % hue_address
-        show_text(msg, font_regular, WHITE, [SCREEN_WIDTH / 2, text_x_offset + FONT_SIZE * (row)])
-    except PhueRequestTimeout as e:
-        print("PhueRequestTimeout Ignore the extra connection trace")
-        HUE_BRIDGE = None
-        msg = "Press Hue button to connect on %s" % hue_address
-        show_text(msg, font_regular, WHITE, [SCREEN_WIDTH / 2, text_x_offset + FONT_SIZE * (row)])
-    except OSError as e:
-        HUE_BRIDGE = None
-        msg = "Failed to connect to Hue"
-        show_text(msg, font_regular, WHITE, [SCREEN_WIDTH / 2, text_x_offset + FONT_SIZE * (row)])
-        
-'''
-
 
 def draw_screen():
     try:
         draw_screen_wrapped()
     except Exception as e:
-        # Alternatively the argument can be omitted
-        pass
-        # if SENTRY_URL is not None:
-        #     capture_exception(e)
-        # raise(e)
+        raise(e)
 
 
 def draw_screen_wrapped():
@@ -235,7 +182,7 @@ def draw_screen_wrapped():
         address = '%s - %s - %s' % addresses[i]
         show_text(address, font_regular, WHITE, [SCREEN_WIDTH/2,text_x_offset + FONT_SIZE*(row)])
         row += 1
-    #draw_hue_wrapped()
+    draw_credits_wrapped()
 
 
 class Alarm(Exception):
@@ -281,28 +228,15 @@ def main():
 
     schedule.every(20).seconds.do(draw_screen)
     schedule.every(1).seconds.do(draw_time)
-    # schedule.every(10).seconds.do(draw_hue)
-
-    # swapped apscheduler for schedule as it was stuck in a lock - I think during db access
-    # scheduler = BackgroundScheduler()
-    # scheduler.add_job(draw_screen, 'interval', seconds=DELAY)
-    # scheduler.add_job(draw_time, 'interval', seconds=1)
-    # scheduler.add_job(draw_hue, 'interval', seconds=10)
-    # scheduler.start()
-    # #
-    # print("scheduler: %s" % scheduler.get_jobs())
 
     print('Press Ctrl+{0} to exit'.format('Break' if osname == 'nt' else 'C'))
 
     try:
-        # This is here to simulate application activity (which keeps the main thread alive).
         while True:
             time.sleep(0.5)
             schedule.run_pending()
     except (KeyboardInterrupt, SystemExit):
         print("goodbye")
-        # Not strictly necessary if daemonic mode is enabled but should be done if possible
-        # scheduler.shutdown()
 
 if __name__ == '__main__': 
     main()

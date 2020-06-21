@@ -1,3 +1,2 @@
-sudo pip install --upgrade setuptools
-sudo pip install --ignore-installed apscheduler
-pip install --upgrade --ignore-installed -r requirements.txt
+sudo pip3 install --upgrade setuptools
+pip3 install --upgrade --ignore-installed -r requirements.txt
